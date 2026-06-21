@@ -22,7 +22,7 @@ jobs:
           python-version: '3.12'
       
       - name: Check ticket availability
-        run: python check_tickets.py
+        run: python check_tickets.py ${{ github.event_name == 'workflow_dispatch' && '--test' || '' }}
       
       - name: Commit state
         if: always()

@@ -115,4 +115,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--test" in sys.argv:
+        # Test mode: send a notification without checking the site
+        print("🧪 TEST MODE: Sending test notification via ntfy.sh...")
+        send_ntfy(
+            title="🏏 TEST — Trent Bridge Monitor Working!",
+            message="This is a test from GitHub Actions. You'll get a real alert when tickets appear.\n\nEng vs Ind IT20 — Tue 7 July 2026",
+            priority="default",
+            tags="cricket,test"
+        )
+        print("✅ Test notification sent. Check your phone!")
+    else:
+        main()
