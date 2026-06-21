@@ -66,12 +66,13 @@ def save_state(state):
 
 def send_ntfy(title, message, priority="high", tags="cricket,ticket"):
     """Send notification via ntfy.sh."""
-    data = message.encode()
+    data = message.encode("utf-8")
     req = urllib.request.Request(NTFY_URL, data=data, headers={
-        "Title": title,
+        "Title": title.encode("utf-8").decode("latin-1", errors="replace"),
         "Priority": priority,
         "Tags": tags,
         "Click": CHECK_URL,
+        "Content-Type": "text/plain; charset=utf-8",
     })
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -97,8 +98,8 @@ def main():
         if not state.get("already_alerted", False):
             print(f"🚨 {message}")
             send_ntfy(
-                title="🏏 TRENT BRIDGE TICKETS AVAILABLE!",
-                message=f"Tickets detected on the exchange!\n\nEng vs Ind IT20 — Tue 7 July 2026, 5:30pm\n\nMove fast: {CHECK_URL}",
+                title="TRENT BRIDGE TICKETS AVAILABLE!",
+                message=f"Tickets detected on the exchange!\n\nEng vs Ind IT20 - Tue 7 July 2026, 5:30pm\n\nMove fast: {CHECK_URL}",
                 priority="urgent",
                 tags="cricket,ticket,urgent"
             )
@@ -119,8 +120,8 @@ if __name__ == "__main__":
         # Test mode: send a notification without checking the site
         print("🧪 TEST MODE: Sending test notification via ntfy.sh...")
         send_ntfy(
-            title="🏏 TEST — Trent Bridge Monitor Working!",
-            message="This is a test from GitHub Actions. You'll get a real alert when tickets appear.\n\nEng vs Ind IT20 — Tue 7 July 2026",
+            title="TEST - Trent Bridge Monitor Working!",
+            message="This is a test from GitHub Actions. You'll get a real alert when tickets appear.\n\nEng vs Ind IT20 - Tue 7 July 2026",
             priority="default",
             tags="cricket,test"
         )
