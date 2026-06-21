@@ -1,27 +1,24 @@
-# Trent Bridge Ticket Monitor
+# Trent Bridge Ticket Monitor 🏏
 
-Checks the [Trent Bridge Ticket Exchange](https://ticketexchange.trentbridge.co.uk/list/resaleProducts/) for available resale tickets and sends a Telegram alert when tickets appear.
+Monitors the [Trent Bridge Ticket Exchange](https://ticketexchange.trentbridge.co.uk/list/resaleProducts/) for available resale tickets (Eng vs Ind IT20, Tue 7 July 2026) and sends push notifications via [ntfy.sh](https://ntfy.sh).
 
-## What it does
+## How it works
 
-- Runs every 10 minutes via GitHub Actions
-- Scrapes the Trent Bridge official ticket exchange page
-- When tickets become available, sends a Telegram message
+- Runs every **10 minutes** via GitHub Actions
+- Checks the official Trent Bridge ticket exchange page
+- When tickets become available, sends an **urgent push notification** via ntfy.sh
 - Only alerts once per availability window (resets when tickets sell out again)
-- Persists state via GitHub Gist so it remembers across runs
+- Persists state in `state.json` (committed back to the repo after each run)
 
-## Setup
+## Set up notifications on your phone
 
-1. Create a GitHub Gist with an empty JSON file called `trent_bridge_state.json` containing `{}`. Copy the Gist ID (from the URL).
+1. Install the **ntfy** app ([iOS](https://apps.apple.com/app/ntfy/id1625396343) / [Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy))
+2. Open the app and tap **+** to subscribe to a topic
+3. Subscribe to: **`trent-bridge-tickets-karthikkp`**
+4. That's it — you'll get a push notification the moment tickets appear
 
-2. Add these secrets to the GitHub repo (Settings → Secrets and variables → Actions):
-   - `TELEGRAM_BOT_TOKEN` — Your Telegram bot token
-   - `TELEGRAM_CHAT_ID` — Your Telegram chat ID (default: 7985595751)
-   - `GIST_ID` — The Gist ID from step 1
-   - `GH_PAT` — A GitHub personal access token with `gist` scope
-
-3. Enable GitHub Actions in the repo settings.
+You can also test it right now by visiting: [https://ntfy.sh/trent-bridge-tickets-karthikkp](https://ntfy.sh/trent-bridge-tickets-karthikkp)
 
 ## Manual trigger
 
-Go to Actions tab → "Trent Bridge Ticket Monitor" → "Run workflow"
+Go to **Actions** → "Trent Bridge Ticket Monitor" → "Run workflow"

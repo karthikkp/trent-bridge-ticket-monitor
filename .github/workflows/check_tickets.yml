@@ -18,13 +18,14 @@ jobs:
         with:
           python-version: '3.12'
       
-      - name: Install dependencies
-        run: pip install requests
-      
       - name: Check ticket availability
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GIST_ID: ${{ secrets.GIST_ID }}
-          GH_PAT: ${{ secrets.GH_PAT }}
         run: python check_tickets.py
+      
+      - name: Commit state
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          git diff --staged --quiet || git commit -m "Update ticket check state"
+          git push

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Trent Bridge Ticket Exchange Monitor
-Checks for available resale tickets and sends a Telegram notification.
-Runs as a GitHub Actions cron job. Persists state in the repo itself.
+Checks for available resale tickets and sends a ntfy.sh notification.
+Runs as a GitHub Actions cron job every 10 minutes.
 """
 
 import json
@@ -15,8 +15,8 @@ from datetime import datetime, timezone
 
 # --- Config ---
 CHECK_URL = "https://ticketexchange.trentbridge.co.uk/list/resaleProducts/"
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "7985595751")
+NTFY_TOPIC = "trent-bridge-tickets-karthikkp"  # Subscribe at ntfy.sh/trent-bridge-tickets-karthikkp
+NTFY_URL = f"https://ntfy.sh/{NTFY_TOPIC}"
 STATE_FILE = "state.json"
 
 
@@ -59,31 +59,26 @@ def load_state():
 
 
 def save_state(state):
-    """Save state to file in repo (for commit-based persistence in Actions)."""
+    """Save state to file in repo."""
     with open(STATE_FILE, 'w') as f:
         json.dump(state, f, indent=2)
 
 
-def send_telegram(message):
-    """Send notification via Telegram."""
-    if not TELEGRAM_BOT_TOKEN:
-        print(f"Telegram not configured. Message: {message}", file=sys.stderr)
-        return False
-
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    data = json.dumps({
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown"
-    }).encode()
-
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+def send_ntfy(title, message, priority="high", tags="cricket,ticket"):
+    """Send notification via ntfy.sh."""
+    data = message.encode()
+    req = urllib.request.Request(NTFY_URL, data=data, headers={
+        "Title": title,
+        "Priority": priority,
+        "Tags": tags,
+        "Click": CHECK_URL,
+    })
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            result = json.loads(resp.read().decode())
-            return result.get("ok", False)
+            print(f"  ntfy notification sent (status: {resp.status})")
+            return True
     except Exception as e:
-        print(f"Telegram send error: {e}", file=sys.stderr)
+        print(f"  ntfy send error: {e}", file=sys.stderr)
         return False
 
 
@@ -100,15 +95,13 @@ def main():
 
     if available:
         if not state.get("already_alerted", False):
-            alert_msg = (
-                f"🏏 *TRENT BRIDGE TICKETS AVAILABLE!*\n\n"
-                f"Tickets detected on the exchange!\n\n"
-                f"👉 Check now: {CHECK_URL}\n\n"
-                f"Eng vs Ind IT20 — Tue 7 July 2026, 5:30pm\n"
-                f"Move fast — face value tickets get snapped up quickly!"
-            )
             print(f"🚨 {message}")
-            send_telegram(alert_msg)
+            send_ntfy(
+                title="🏏 TRENT BRIDGE TICKETS AVAILABLE!",
+                message=f"Tickets detected on the exchange!\n\nEng vs Ind IT20 — Tue 7 July 2026, 5:30pm\n\nMove fast: {CHECK_URL}",
+                priority="urgent",
+                tags="cricket,ticket,urgent"
+            )
             state["already_alerted"] = True
         else:
             print(f"✅ {message} (already alerted)")
