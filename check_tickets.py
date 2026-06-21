@@ -2,7 +2,7 @@
 """
 Trent Bridge Ticket Exchange Monitor
 Checks for available resale tickets and sends a Telegram notification.
-Designed to run as a GitHub Actions cron job.
+Runs as a GitHub Actions cron job. Persists state in the repo itself.
 """
 
 import json
@@ -17,9 +17,7 @@ from datetime import datetime, timezone
 CHECK_URL = "https://ticketexchange.trentbridge.co.uk/list/resaleProducts/"
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "7985595751")
-# GitHub Actions will use the GIST_ID to persist state across runs
-GIST_ID = os.environ.get("GIST_ID", "")
-GIST_FILENAME = "trent_bridge_state.json"
+STATE_FILE = "state.json"
 
 
 def fetch_page(url):
@@ -40,12 +38,10 @@ def check_availability(html):
     if not html:
         return False, "Failed to fetch page"
 
-    # The "no tickets" message
     no_tickets_pattern = r"there are currently no tickets being resold"
     if re.search(no_tickets_pattern, html, re.IGNORECASE):
         return False, "No tickets currently available"
 
-    # If page doesn't contain the "no tickets" message, tickets might be available
     product_pattern = r'(resaleProduct|ticket.*available|Add to cart|Select|seat|stand)'
     if re.search(product_pattern, html, re.IGNORECASE):
         return True, "Tickets may be available!"
@@ -53,47 +49,19 @@ def check_availability(html):
     return False, "Page loaded but status unclear - manual check recommended"
 
 
-def load_state_gist():
-    """Load previous state from GitHub Gist (for cross-run persistence in Actions)."""
-    if not GIST_ID:
-        return {"last_available": None, "last_check": None, "already_alerted": False}
-
-    token = os.environ.get("GH_PAT", "") or os.environ.get("GITHUB_TOKEN", "")
-    url = f"https://api.github.com/gists/{GIST_ID}"
-    req = urllib.request.Request(url, headers={
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github.v3+json"
-    })
+def load_state():
+    """Load previous state from file in repo."""
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            gist = json.loads(resp.read().decode())
-            content = gist["files"][GIST_FILENAME]["content"]
-            return json.loads(content)
-    except Exception as e:
-        print(f"Could not load gist state: {e}", file=sys.stderr)
+        with open(STATE_FILE, 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
         return {"last_available": None, "last_check": None, "already_alerted": False}
 
 
-def save_state_gist(state):
-    """Save state to GitHub Gist for cross-run persistence."""
-    if not GIST_ID:
-        return
-
-    token = os.environ.get("GH_PAT", "") or os.environ.get("GITHUB_TOKEN", "")
-    url = f"https://api.github.com/gists/{GIST_ID}"
-    data = json.dumps({
-        "description": "Trent Bridge ticket monitor state",
-        "files": {GIST_FILENAME: {"content": json.dumps(state, indent=2)}}
-    }).encode()
-    req = urllib.request.Request(url, data=data, headers={
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github.v3+json"
-    }, method="PATCH")
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            print("State saved to gist.")
-    except Exception as e:
-        print(f"Could not save gist state: {e}", file=sys.stderr)
+def save_state(state):
+    """Save state to file in repo (for commit-based persistence in Actions)."""
+    with open(STATE_FILE, 'w') as f:
+        json.dump(state, f, indent=2)
 
 
 def send_telegram(message):
@@ -121,7 +89,7 @@ def send_telegram(message):
 
 def main():
     now = datetime.now(timezone.utc).isoformat()
-    state = load_state_gist()
+    state = load_state()
 
     print(f"[{now}] Checking Trent Bridge Ticket Exchange...")
 
@@ -131,7 +99,6 @@ def main():
     state["last_check"] = now
 
     if available:
-        # Only alert if we haven't already alerted about this availability
         if not state.get("already_alerted", False):
             alert_msg = (
                 f"🏏 *TRENT BRIDGE TICKETS AVAILABLE!*\n\n"
@@ -147,15 +114,12 @@ def main():
             print(f"✅ {message} (already alerted)")
         state["last_available"] = now
     else:
-        # Reset alert flag when tickets disappear (so we alert again next time)
         state["already_alerted"] = False
         print(f"  {message}")
 
-    save_state_gist(state)
-    print(f"  Check complete. Next run in ~10 minutes.")
-
-    return 0
+    save_state(state)
+    print(f"  Check complete.")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
